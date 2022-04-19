@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block header %}
+    <h1>{% block title %}Home{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+
+    <h2>Welcome!</h2>
+    {% if user_name %}
+        <h1>Hi {{ user_name }}! </h1>
+    {% endif %}
+
+    <form method="post">
+        <div class="mb-3">
+            <input name="user_name" id="description" required class="form-control" placeholder="name">
+        </div>
+        <div>
+            <button type="submit" class="btn btn-primary">Say Hi!</button>
+        </div>
+    </form>
+
+{% endblock %}
