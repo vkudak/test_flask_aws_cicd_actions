@@ -1,0 +1,103 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI-CD-AWS_S3
+env:
+  EB_PACKAGE_S3_BUCKET_NAME: "flask-app-test-bucket"
+  EB_APPLICATION_NAME: "MyFlask"
+  EB_ENVIRONMENT_NAME: "MyFlask-env"
+  DEPLOY_PACKAGE_NAME: "flask_app_${{github.sha}}.zip"
+  AWS_REGION_NAME: "eu-central-1"   
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the main branch
+  push:
+    branches: [ main ]
+# #   pull_request:
+# #     branches: [ main ]
+
+  # Allows you to run this workflow manually from the Actions tab
+#   workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.8.10"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 pytest
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        # flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        flake8 . --count --exit-zero --statistics
+    
+    - name: Test with pytest
+      run: |
+        pytest
+  
+  my-ci-part:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    needs: [tests]
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      - name: Git clone my repo
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+        uses: actions/checkout@v3
+      
+      - name: Create ZIP package
+        run: zip -r ${{env.DEPLOY_PACKAGE_NAME}} ./ -x *.git* -x *.idea*
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.MY_AWS_ACCES_KEY }}
+          aws-secret-access-key: ${{ secrets.MY_AWS_SECRET_KEY }}
+          aws-region: ${{ env.AWS_REGION_NAME }}
+      
+      - name: Copy deployment package (our zip file) to S3 Bucket
+        run: aws s3 cp ${{env.DEPLOY_PACKAGE_NAME}} s3://${{ env.EB_PACKAGE_S3_BUCKET_NAME }}/
+        
+      - name: Print Heppy Message for CI finish
+        run: echo "CI Pipeline finished successfully"
+  
+  my-cd-part:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    needs: [my-ci-part]
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.MY_AWS_ACCES_KEY }}
+          aws-secret-access-key: ${{ secrets.MY_AWS_SECRET_KEY }}
+          aws-region: ${{ env.AWS_REGION_NAME }}
+      
+      - name: Create new ElasticBeanstalk App 
+        run: |
+          aws elasticbeanstalk create-application-version \
+          --application-name ${{env.EB_APPLICATION_NAME}} \
+          --source-bundle S3Bucket="${{ env.EB_PACKAGE_S3_BUCKET_NAME }}",S3Key="${{ env.DEPLOY_PACKAGE_NAME }}" \
+          --version-label "Version-${{github.sha}}" \
+          --description "Commit-SHA ${{github.sha}}"
+      
+      - name: Deploy new ElasticBeanstalk App Version
+        run: aws elasticbeanstalk update-environment --environment-name ${{ env.EB_ENVIRONMENT_NAME }} --version-label "Version-${{github.sha}}"
+        
+      - name: Print Heppy Message for CD finish
+        run: echo "CD Pipeline finished successfully"
