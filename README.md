@@ -1,6 +1,9 @@
 # test_flask_aws_cicd_actions
 - simple flask app from https://github.com/vasylpiasetskyi/flask_cicd
 
+# workflow badge
+[![tests-CICD-AWS_S3](https://github.com/vkudak/test_flask_aws_cicd_actions/actions/workflows/tests-CICD-AWS.yml/badge.svg?branch=main)](https://github.com/vkudak/test_flask_aws_cicd_actions/actions/workflows/tests-CICD-AWS.yml)
+
 # Homework
 1. Створити Flask проект:
 	- одна сторінка htm, типу "Hello World"
